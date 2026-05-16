@@ -162,11 +162,11 @@
     ];
     // ============================================================
 
-    // ▸ Swap PARTYKIT_HOST after `npx partykit deploy` (e.g. "viber.noevafoundation.partykit.dev").
-    const PARTYKIT_HOST =
-      location.hostname === "localhost" || location.hostname === "127.0.0.1"
-        ? "localhost:1999"
-        : "viber.noevafoundation.partykit.dev";
+    // ▸ Swap PROD_HOST after `npx partykit deploy` (e.g. "viber.noevafoundation.partykit.dev").
+    const PROD_HOST = "viber.louisebishop.partykit.dev";
+    const PARTYKIT_HOST = location.hostname.endsWith("github.io")
+      ? PROD_HOST
+      : `${location.hostname}:1999`;
     const ROOM = "main";
 
     const SOLO = new URLSearchParams(location.search).has("solo");
