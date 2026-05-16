@@ -86,7 +86,16 @@
       opacity: 0; transform: translateY(10px);
       animation: lineIn .4s cubic-bezier(.2,.8,.2,1) forwards;
     }
-    .badge { position: fixed; top: 12px; right: 12px; font-size: .7rem; letter-spacing: .15em; color: var(--dim); }
+    .badge {
+      position: fixed; top: 12px; right: 12px;
+      font-size: .7rem; letter-spacing: .2em; font-weight: 700;
+      color: var(--dim);
+      padding: .35rem .6rem; border-radius: 999px;
+      background: rgba(0,0,0,.4); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .badge.host { color: #000; background: var(--fg); border-color: var(--fg); }
+    .badge.solo { color: var(--fg); }
     @keyframes fadeIn { to { opacity: 1; } }
     @keyframes lineIn { to { opacity: 1; transform: none; } }
   </style>
@@ -186,8 +195,9 @@
     // --- transport ----------------------------------------------
     let send = () => {};
 
+    let soloLabel = null;
     function goSolo(reason) {
-      badge.textContent = reason ? `SOLO · ${reason}` : "SOLO";
+      soloLabel = reason ? `SOLO · ${reason}` : "SOLO";
       state.role = "host";
       send = (msg) => {
         const m = typeof msg === "string" ? JSON.parse(msg) : msg;
@@ -284,7 +294,17 @@
     }
 
     // --- render -------------------------------------------------
+    function updateBadge() {
+      if (soloLabel) {
+        badge.textContent = soloLabel;
+        badge.className = "badge solo";
+      } else {
+        badge.textContent = state.role === "host" ? "HOST" : "PLAYER";
+        badge.className = "badge " + state.role;
+      }
+    }
     function render() {
+      updateBadge();
       const sc = SCENARIOS[state.scenarioIdx];
       if (!sc) return renderEnd();
       if (state.phase === "voting") return renderVoting(sc);
