@@ -1,0 +1,7 @@
+{
+  "name": "viber",
+  "private": true,
+  "devDependencies": {
+    "partykit": "latest"
+  }
+}

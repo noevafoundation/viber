@@ -2,15 +2,376 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a14" />
   <title>viber</title>
-  <link rel="stylesheet" href="./style.css" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a14;
+      --fg: #f0f0ff;
+      --dim: #8888a0;
+      --a: #ff5577;
+      --b: #44ccff;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+    body {
+      background: radial-gradient(circle at 30% 10%, #1a1530, #0a0a14 60%);
+      color: var(--fg);
+      font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100dvh;
+    }
+    #app { min-height: 100dvh; padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); max-width: 560px; margin: 0 auto; }
+    .screen { min-height: 100dvh; display: flex; flex-direction: column; gap: 1.75rem; padding: 2rem 0; }
+    .spacer { flex: 1; }
+    .setup {
+      font-size: clamp(1.6rem, 6.5vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.02em;
+      text-wrap: balance;
+    }
+    .setup.small { font-size: 1rem; opacity: .55; font-weight: 500; }
+
+    .choices { display: grid; gap: 1rem; }
+    .choice {
+      font: inherit; color: var(--fg); border: 0; cursor: pointer;
+      padding: 1.5rem 1.25rem; border-radius: 1.25rem;
+      font-size: 1.25rem; font-weight: 700; text-align: left;
+      min-height: 120px; line-height: 1.2;
+      transition: transform .1s ease;
+      text-wrap: balance;
+    }
+    .choice:active { transform: scale(.97); }
+    .choice.a { background: linear-gradient(135deg, #ff3366, #ff7755); }
+    .choice.b { background: linear-gradient(135deg, #3366ff, #44ccff); color: #001020; }
+    .choice .tag { display: block; font-size: .85rem; opacity: .75; font-weight: 600; margin-bottom: .35rem; letter-spacing: .15em; }
+
+    .waiting { display: grid; gap: .5rem; }
+    .locked { font-size: 1.3rem; opacity: .9; }
+    .locked b { font-size: 2rem; }
+    .locked b.a { color: var(--a); }
+    .locked b.b { color: var(--b); }
+    .count { color: var(--dim); font-size: 1rem; font-variant-numeric: tabular-nums; }
+
+    .host-btn {
+      font: inherit; color: var(--bg); background: var(--fg);
+      border: 0; border-radius: 1rem; padding: 1.1rem;
+      font-size: 1.1rem; font-weight: 700; cursor: pointer;
+      align-self: stretch;
+    }
+    .host-btn:active { transform: scale(.98); }
+    .host-btn.ghost { background: transparent; color: var(--fg); border: 2px solid #333; }
+
+    .split { display: grid; gap: .75rem; }
+    .bar { height: 32px; border-radius: 999px; overflow: hidden; display: flex; background: #1a1a28; }
+    .fill { height: 100%; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+    .fill.a { background: var(--a); }
+    .fill.b { background: var(--b); }
+    .pcts { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+    .pcts .a { color: var(--a); }
+    .pcts .b { color: var(--b); }
+
+    .chose { font-size: 1.3rem; opacity: 0; animation: fadeIn .5s .1s forwards; }
+    .chose b { font-size: 1.8rem; }
+    .chose b.a { color: var(--a); }
+    .chose b.b { color: var(--b); }
+
+    .lines { display: grid; gap: .9rem; }
+    .line {
+      font-size: clamp(1.35rem, 5.5vw, 1.85rem); font-weight: 800;
+      line-height: 1.15; letter-spacing: -.01em; text-wrap: balance;
+      opacity: 0; transform: translateY(10px);
+      animation: lineIn .4s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+    .badge { position: fixed; top: 12px; right: 12px; font-size: .7rem; letter-spacing: .15em; color: var(--dim); }
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes lineIn { to { opacity: 1; transform: none; } }
+  </style>
 </head>
 <body>
-  <main>
-    <h1>viber</h1>
-    <p>ready to build.</p>
-  </main>
-  <script type="module" src="./app.js"></script>
+  <div id="app"></div>
+  <div class="badge" id="badge"></div>
+
+  <script type="module">
+    // ============================================================
+    // SCENARIOS — edit me. Each: { setup, choiceA, choiceB, worstA, worstB }
+    // worstA/worstB: arrays of escalation lines, revealed one at a time.
+    // ============================================================
+    const SCENARIOS = [
+      {
+        setup: "You sent the text to the wrong person.",
+        choiceA: "Double-text an explanation",
+        choiceB: "Fake your own disappearance",
+        worstA: [
+          "You triple-text.",
+          "You quadruple-text.",
+          "They screenshot the thread.",
+          "The screenshot reaches HR.",
+          "HR posts it to LinkedIn for engagement.",
+          "You are now the #1 trending post in three countries.",
+        ],
+        worstB: [
+          "You move to a small village.",
+          "The village has wifi.",
+          "Your aunt tags you on Facebook.",
+          "The wrong person finds the post.",
+          "They drive six hours to confront you.",
+          "They just wanted to ask about brunch.",
+        ],
+      },
+      {
+        setup: "The Zoom is still recording.",
+        choiceA: "Pretend nothing happened",
+        choiceB: "Delete the recording yourself",
+        worstA: [
+          "Your boss watches it.",
+          "Your boss's boss watches it.",
+          "The board watches it.",
+          "It opens the all-hands tomorrow.",
+          "You are introduced as the example.",
+        ],
+        worstB: [
+          "IT notices.",
+          "IT writes a memo.",
+          "The memo gets leaked.",
+          "You are now a cautionary slide in onboarding.",
+          "Forever.",
+        ],
+      },
+      {
+        setup: "You spilled coffee on your laptop two minutes before the demo.",
+        choiceA: "Demo from your phone",
+        choiceB: "Wing it from memory",
+        worstA: [
+          "Autocorrect changes 'revenue' to 'revenge'.",
+          "The investors lean in.",
+          "You raise a $40M Series A by accident.",
+          "You now have to actually start a revenge company.",
+        ],
+        worstB: [
+          "You forget your own name.",
+          "You invent a new name.",
+          "It is your competitor's CEO's name.",
+          "You accidentally pitch their product.",
+          "They win the deal anyway.",
+        ],
+      },
+    ];
+    // ============================================================
+
+    // ▸ Swap PARTYKIT_HOST after `npx partykit deploy` (e.g. "viber.noevafoundation.partykit.dev").
+    const PARTYKIT_HOST =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? "localhost:1999"
+        : "viber.noevafoundation.partykit.dev";
+    const ROOM = "main";
+
+    const SOLO = new URLSearchParams(location.search).has("solo");
+
+    const state = {
+      role: "player",
+      scenarioIdx: 0,
+      phase: "voting",
+      tally: { A: 0, B: 0, total: 0 },
+      yourVote: null,
+      revealStep: 0, // 0 = split only, 1 = "chose X", 2+ = lines
+    };
+
+    const app = document.getElementById("app");
+    const badge = document.getElementById("badge");
+
+    // --- transport ----------------------------------------------
+    let send = () => {};
+
+    function goSolo(reason) {
+      badge.textContent = reason ? `SOLO · ${reason}` : "SOLO";
+      state.role = "host";
+      send = (msg) => {
+        const m = typeof msg === "string" ? JSON.parse(msg) : msg;
+        if (m.type === "vote") {
+          state.yourVote = m.choice;
+          state.tally = {
+            A: m.choice === "A" ? 1 : 0,
+            B: m.choice === "B" ? 1 : 0,
+            total: 1,
+          };
+        } else if (m.type === "advance") {
+          if (state.phase === "voting") {
+            state.phase = "revealed";
+            startReveal();
+          } else {
+            advanceLocal();
+          }
+        } else if (m.type === "restart") {
+          state.scenarioIdx = 0; state.phase = "voting";
+          state.yourVote = null; state.tally = { A: 0, B: 0, total: 0 };
+        }
+        render();
+      };
+      render();
+    }
+
+    if (SOLO) {
+      goSolo();
+    } else {
+      try {
+        const mod = await import("https://esm.sh/partysocket@1.1.4");
+        const PartySocket = mod.default;
+        const socket = new PartySocket({ host: PARTYKIT_HOST, room: ROOM });
+        send = (msg) =>
+          socket.send(typeof msg === "string" ? msg : JSON.stringify(msg));
+        socket.addEventListener("message", (e) => {
+          const m = JSON.parse(e.data);
+          if (m.type === "init") {
+            state.role = m.role;
+            state.scenarioIdx = m.scenarioIdx;
+            state.phase = m.phase;
+            state.tally = m.tally;
+            state.yourVote = m.yourVote;
+            if (state.phase === "revealed") state.revealStep = 999; // mid-room joiner
+          } else if (m.type === "tally") {
+            state.tally = m.tally;
+          } else if (m.type === "state") {
+            const wasVoting = state.phase === "voting";
+            state.phase = m.phase;
+            state.scenarioIdx = m.scenarioIdx;
+            state.tally = m.tally;
+            if (state.phase === "voting") state.yourVote = null;
+            if (state.phase === "revealed" && wasVoting) startReveal();
+          } else if (m.type === "role") {
+            state.role = m.role;
+          }
+          render();
+        });
+        socket.addEventListener("error", () => {
+          if (!socket.readyState) goSolo("offline");
+        });
+      } catch (err) {
+        goSolo("offline");
+      }
+    }
+
+    // --- reveal pacing ------------------------------------------
+    let revealTimer = null;
+    function startReveal() {
+      clearTimeout(revealTimer);
+      state.revealStep = 0;
+      render();
+      const sc = SCENARIOS[state.scenarioIdx];
+      if (!sc) return;
+      const chosen = state.tally.A >= state.tally.B ? "A" : "B";
+      const lines = chosen === "A" ? sc.worstA : sc.worstB;
+      const total = 1 + lines.length;
+      const tick = () => {
+        state.revealStep++;
+        render();
+        if (state.revealStep < total) {
+          revealTimer = setTimeout(tick, state.revealStep === 1 ? 900 : 1200);
+        }
+      };
+      revealTimer = setTimeout(tick, 1500); // beat after split
+    }
+
+    function advanceLocal() {
+      state.scenarioIdx++;
+      state.phase = "voting";
+      state.yourVote = null;
+      state.tally = { A: 0, B: 0, total: 0 };
+      state.revealStep = 0;
+    }
+
+    // --- render -------------------------------------------------
+    function render() {
+      const sc = SCENARIOS[state.scenarioIdx];
+      if (!sc) return renderEnd();
+      if (state.phase === "voting") return renderVoting(sc);
+      return renderRevealed(sc);
+    }
+
+    function renderVoting(sc) {
+      const voted = state.yourVote;
+      app.innerHTML = `
+        <div class="screen">
+          <div class="setup">${esc(sc.setup)}</div>
+          ${voted ? `
+            <div class="waiting">
+              <div class="locked">locked in <b class="${voted.toLowerCase()}">${voted}</b></div>
+              <div class="count">${state.tally.total} vote${state.tally.total === 1 ? "" : "s"}</div>
+            </div>
+          ` : `
+            <div class="choices">
+              <button class="choice a" data-c="A"><span class="tag">A</span>${esc(sc.choiceA)}</button>
+              <button class="choice b" data-c="B"><span class="tag">B</span>${esc(sc.choiceB)}</button>
+            </div>
+          `}
+          <div class="spacer"></div>
+          ${state.role === "host" ? `<button class="host-btn" data-action="advance">Reveal →</button>` : ""}
+        </div>
+      `;
+      app.querySelectorAll(".choice").forEach((btn) =>
+        btn.addEventListener("click", () =>
+          send({ type: "vote", choice: btn.dataset.c }),
+        ),
+      );
+      const adv = app.querySelector('[data-action="advance"]');
+      if (adv) adv.addEventListener("click", () => send({ type: "advance" }));
+    }
+
+    function renderRevealed(sc) {
+      const total = state.tally.total || 1;
+      const pctA = Math.round((state.tally.A / total) * 100);
+      const pctB = 100 - pctA;
+      const chosen = state.tally.A >= state.tally.B ? "A" : "B";
+      const lines = chosen === "A" ? sc.worstA : sc.worstB;
+      const linesShown = Math.max(0, state.revealStep - 1);
+      const done = state.revealStep > lines.length;
+
+      app.innerHTML = `
+        <div class="screen">
+          <div class="setup small">${esc(sc.setup)}</div>
+          <div class="split">
+            <div class="bar">
+              <div class="fill a" style="width:${pctA}%"></div>
+              <div class="fill b" style="width:${pctB}%"></div>
+            </div>
+            <div class="pcts"><span class="a">${pctA}% A</span><span class="b">${pctB}% B</span></div>
+          </div>
+          ${state.revealStep >= 1 ? `<div class="chose">the room chose <b class="${chosen.toLowerCase()}">${chosen}</b></div>` : ""}
+          <div class="lines">
+            ${lines.slice(0, linesShown).map((l) => `<div class="line">${esc(l)}</div>`).join("")}
+          </div>
+          <div class="spacer"></div>
+          ${state.role === "host" && done ? `<button class="host-btn" data-action="advance">Next scenario →</button>` : ""}
+        </div>
+      `;
+      const adv = app.querySelector('[data-action="advance"]');
+      if (adv) adv.addEventListener("click", () => send({ type: "advance" }));
+    }
+
+    function renderEnd() {
+      app.innerHTML = `
+        <div class="screen">
+          <div class="setup">that's all folks.</div>
+          <div class="spacer"></div>
+          ${state.role === "host"
+            ? `<button class="host-btn" data-action="restart">Run it back ↺</button>`
+            : `<div class="count">waiting on host…</div>`}
+        </div>
+      `;
+      const r = app.querySelector('[data-action="restart"]');
+      if (r) r.addEventListener("click", () => send({ type: "restart" }));
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    render();
+  </script>
 </body>
 </html>
