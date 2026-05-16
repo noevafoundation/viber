@@ -23,8 +23,8 @@
       -webkit-font-smoothing: antialiased;
       min-height: 100dvh;
     }
-    #app { min-height: 100dvh; padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); max-width: 560px; margin: 0 auto; }
-    .screen { min-height: 100dvh; display: flex; flex-direction: column; gap: 1.75rem; padding: 2rem 0; }
+    #app { min-height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); max-width: 560px; margin: 0 auto; }
+    .screen { flex: 1; display: flex; flex-direction: column; gap: 1.75rem; padding: 1.5rem 0; }
     .spacer { flex: 1; }
     .setup {
       font-size: clamp(1.6rem, 6.5vw, 2.5rem);
@@ -312,9 +312,11 @@
         </div>
       `;
       app.querySelectorAll(".choice").forEach((btn) =>
-        btn.addEventListener("click", () =>
-          send({ type: "vote", choice: btn.dataset.c }),
-        ),
+        btn.addEventListener("click", () => {
+          state.yourVote = btn.dataset.c;
+          render();
+          send({ type: "vote", choice: btn.dataset.c });
+        }),
       );
       const adv = app.querySelector('[data-action="advance"]');
       if (adv) adv.addEventListener("click", () => send({ type: "advance" }));
